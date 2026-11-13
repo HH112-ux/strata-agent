@@ -19,7 +19,13 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "target", "build"}
 
-# 只比对标题文字，不比对编号——模板调整章节顺序或改编号时不应误报。
+# workflow 触发键的合法原文写法：on: / "on": / 'on':，允许键名后带空格。
+TRIGGER_KEY_RE = re.compile(r"""^(?:on|"on"|'on')\s*:""")
+
+# 必填小节必须是二级标题：只比对标题文字与层级，不比对编号，
+# 避免嵌套的 `### 风险` 或改编号被当成合格小节。
+REQUIRED_SECTION_LEVEL = 2
+
 REQUIRED_SECTIONS = {
     "specs/_templates/spec.md": [
         "背景与问题",
@@ -78,11 +84,20 @@ def check_yaml() -> None:
             errors.append(f"{rel}: YAML 顶层必须是空对象以外的映射")
             continue
         if rel.parts[:2] == (".github", "workflows"):
-            # YAML 1.1 把未加引号的 `on` 解析成布尔 True，`On:` 之类的拼写错误也能“解析成功”，
-            # 因此按原文核对必需顶层键。
-            for key in ("on:", "jobs:"):
-                if not any(line.startswith(key) for line in text.splitlines()):
-                    errors.append(f"{rel}: 缺少顶层 `{key.rstrip(':')}` 键（按原文核对，不依赖解析结果）")
+            before = len(errors)
+            # 触发键要同时满足两件事：
+            # 1) 解析后存在——未加引号的 `on` 解析成布尔 True，带引号的 `"on"` 解析成字符串，
+            #    两种写法都合法；
+            # 2) 原文里的键名拼写确实是 on——YAML 1.1 把 `On`、`ON` 也解析成布尔 True，
+            #    只靠解析结果会把拼写错误当成正常键。
+            if not (True in data or "on" in data) or not any(
+                TRIGGER_KEY_RE.match(line) for line in text.splitlines()
+            ):
+                errors.append(f"{rel}: 缺少顶层 `on` 键，或键名拼写不是 on（如 `On:`）")
+            if "jobs" not in data:
+                errors.append(f"{rel}: 缺少顶层 `jobs` 键")
+            if len(errors) != before:
+                continue
         print(f"  ok  {rel}")
 
 
@@ -123,16 +138,17 @@ def check_links() -> None:
     print(f"  {total} link(s) checked, {broken} broken")
 
 
-HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*#*\s*$")
 NUMBERING_RE = re.compile(r"^\d+(?:\.\d+)*[.、]?\s*")
 
 
-def headings_of(text: str) -> set[str]:
-    found = set()
+def headings_of(text: str) -> list[tuple[int, str]]:
+    """返回 (层级, 标题文字) 列表，层级用于区分 `## 风险` 与 `### 风险`。"""
+    found = []
     for line in strip_code_blocks(text).splitlines():
         match = HEADING_RE.match(line)
         if match:
-            found.add(NUMBERING_RE.sub("", match.group(1)).strip())
+            found.append((len(match.group(1)), NUMBERING_RE.sub("", match.group(2)).strip()))
     return found
 
 
@@ -146,7 +162,11 @@ def check_templates() -> None:
             errors.append(f"{rel_path}: 模板文件不存在")
             continue
         found = headings_of(path.read_text(encoding="utf-8"))
-        missing = [section for section in sections if section not in found]
+        missing = [
+            section
+            for section in sections
+            if not any(level == REQUIRED_SECTION_LEVEL and title == section for level, title in found)
+        ]
         if missing:
             errors.append(f"{rel_path}: 缺少必填小节: {', '.join(missing)}")
             continue
