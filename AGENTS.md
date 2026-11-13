@@ -94,7 +94,7 @@ git remote -v
 **成熟度：L1 已达成（2026-11-13）。** 判定依据是 `.github/workflows/ci.yml` 的两个 job，在 `push` 到 `main`、面向 `main` 的 `pull_request` 与 `workflow_dispatch` 时运行：
 
 - `secret-scan`：gitleaks 以 `--log-opts="--all"` 扫全部提交历史，命中任一规则即非零退出，PR 显示失败。
-- `docs-check`：YAML 可解析且顶层为映射、Markdown 相对链接可解析、`specs/_templates/` 必填小节齐全，任一不满足即退出 1。
+- `docs-check`：YAML 可解析且顶层为映射（`.github/workflows/*.yml` 另按原文核对顶层 `on`/`jobs` 键）、Markdown 相对链接可解析、`specs/_templates/` 必填小节齐全，任一不满足即退出 1。
 
 **尚未达成 L2**：无可运行 eval、无可用降级开关、无线上观测。构建与测试检查等 ADR-0005 选定构建工具后再加，不以占位任务充数。
 
