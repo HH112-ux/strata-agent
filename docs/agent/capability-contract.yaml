@@ -1,0 +1,135 @@
+# D1 能力与权限契约 + D4 护栏与 HITL
+# 路径：docs/agent/capability-contract.yaml
+# 依据：《Agent 开发标准》§3 D1、§3 D4（本地副本：/Users/caspian/ai开发规范/agent-development-standard.md）
+# 范围：本文件描述 Strata 平台自身的工具执行面，不是某个业务 agent 的实例清单。
+#       任何示例模块、业务场景新增工具，必须先在此登记，才允许注册进 ToolRegistry（FR-2）。
+# ［本团队］字段结构沿用标准 starter-kit；工具风险判据为只读/写入、可逆性、账号权限、资金影响。
+
+agent: strata-agent
+owner: Caspian
+tier: prototype            # 内部验证、样例数据（spec §9 假设）、当前无外部终端用户
+updated_at: 2026-11-13
+status: 初始登记——仓库尚无工具实现，工具清单为空，字段要求已固化
+
+# ---------- 身份：平台以谁的身份调用下游 ----------
+identity:
+  mode: 待补                      # 缺：spec 只有"有权限/无权限"的结果定义（AC-4.2），没有认证与授权方案
+  downstream_subject: 待补        # 缺：调模型服务与 MCP server 时的服务身份，未出 ADR
+  token_source: 待补              # 缺：API Key 直接走环境变量，还是换取短期 token 未定
+  token_ttl: 待补
+  token_storage: 环境变量注入     # 明文密钥零入库（constitution Art. III）；.env.example 待补（T012/T019）
+
+# ---------- 工具清单 ----------
+# 当前为 0 条：ToolRegistry 尚未实现（S2，T021–T023）。不得在实现中注册未在此登记的工具。
+# 每条工具必须填全下列字段后才可合并：
+#   name / purpose / input_schema / output_schema / side_effect / reversible / risk /
+#   scopes / timeout_ms / idempotency_key / requires_approval / worst_case / owner
+tools: []
+
+# ---------- 禁调用清单：由 spec 的"范围外"与宪法红线翻译 ----------
+forbidden:
+  - any_shell_command            # 不得提供可执行任意 shell 的工具（FR-3、constitution Art. III）
+  - unregistered_tool            # 未在 ToolRegistry 登记的工具，默认拒绝（FR-2、AC-1.2）
+  - direct_mcp_bypass            # 绕过 MCP 网关直连外部 MCP server（FR-8 要求经网关）
+  - host_filesystem_access       # 工具不得读取宿主机任意路径（依据：constitution Art. III 的白名单与资源上限约束，FR-2/FR-3）
+  - unregistered_outbound_write  # 未登记的对外写操作（发消息、写外部系统）
+
+# ---------- 权限矩阵 ----------
+# 环境维度只有 dev：仓库无 staging / prod（plan §2 部署形态仅本地 Docker Compose）。
+# 数据域定义见 docs/agent/data-boundary.md §1。
+permission_matrix:
+  - tool: tool_runtime.invoke
+    env: {dev: allow}
+    data_domains: {public: allow, internal: allow, confidential: deny, personal: deny}
+  - tool: mcp_gateway.invoke
+    env: {dev: 待补}              # 缺：网关的鉴权与授权判定规则（FR-8 只给出两种结果）
+    data_domains: {public: 待补, internal: 待补, confidential: deny, personal: 待补}
+  - tool: memory.read_write
+    env: {dev: allow}
+    data_domains: {public: 待补, internal: 待补, confidential: deny, personal: 待补}
+
+# ---------- D4 护栏：从 threat-model 的威胁反推 ----------
+guardrails:
+  - id: G-001
+    stage: tool
+    target: tool_runtime.invoke
+    check: 工具名不在注册表或不在白名单内即拒绝
+    on_hit: block
+    failure_mode: closed          # 白名单校验失败时按拒绝处理
+    basis: AC-1.2 / FR-2
+    tests: 待补                   # 缺：ToolRegistry 实现与其负例测试（T021–T023）
+
+  - id: G-002
+    stage: tool
+    target: 所有工具调用
+    check: 执行时间超过注册的超时阈值即中断
+    on_hit: block
+    failure_mode: closed
+    basis: AC-1.3
+    tests: 待补
+
+  - id: G-003
+    stage: run
+    target: Agent 任务循环
+    check: 达到最大步数或重复调用阈值即强制终止并记录原因
+    on_hit: block
+    failure_mode: closed
+    basis: spec §7 工具循环调用
+    tests: 待补
+
+  - id: G-004
+    stage: output
+    target: RAG 回答
+    check: 引用的片段必须能定位到原文；检索无命中时只输出"依据不足"
+    on_hit: block_and_rewrite
+    failure_mode: closed
+    basis: AC-6.2 / AC-6.3
+    tests: 待补
+
+  - id: G-005
+    stage: output
+    target: 日志与 trace
+    check: 密钥、完整提示词、个人敏感字段不落原文
+    on_hit: redact
+    failure_mode: closed
+    basis: NFR-3、constitution Art. III
+    tests: 待补                   # 缺：脱敏单测与日志抽查记录
+
+  - id: G-006
+    stage: tool
+    target: mcp_gateway.invoke
+    check: 调用超过限流阈值即拒绝并返回可重试提示
+    on_hit: block
+    failure_mode: closed
+    basis: AC-4.3
+    tests: 待补
+
+# ---------- HITL 触发矩阵 ----------
+hitl:
+  mechanism: Graph 工作流的人工介入节点（AC-3.2）与"待人工"任务状态（AC-2.4）
+  triggers:
+    - condition: 工作流定义含人工介入节点
+      action: suspend_and_wait
+      approver_role: 待补         # 缺：单人仓库，无审批角色划分
+    - condition: 多 Agent 无法达成唯一结论且裁决规则不适用
+      action: 标记待人工
+      approver_role: 待补         # 缺：AC-2.3 的裁决规则本身未定义
+  approval_view_must_include:
+    - 原始任务与输入
+    - 拟继续的节点与参数
+    - 已完成步骤与副作用清单
+  on_timeout: 保持暂停并记录等待时长   # ［本团队］spec §7 明确"不自动跳过"，与标准默认拒绝的取向一致，理由：长任务工作流跳过会丢失语义
+  audit: 待补                     # 缺：暂停/恢复/人工提交的审计记录字段与存储位置
+
+# ---------- MCP 接入 ----------
+# ［本团队］第三方 server 默认只读、不授写权限；接入前必须登记 trust 与 allowed_scopes。
+mcp_servers: []                  # 当前 0 个。接入时必须补：name / trust / pinned_version /
+                                 # allowed_scopes / per_client_consent / allow_token_passthrough / redirect_uri_exact_match
+
+# ---------- 变更记录：扩权单独评审 ----------
+change_log:
+  - date: 2026-11-13
+    change: 初始登记：0 个工具，禁调用清单与护栏要求先行固化
+    type: initial
+    approved_by: Caspian
+    pr: "#1"
