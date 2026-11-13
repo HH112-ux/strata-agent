@@ -2,6 +2,9 @@
 """仓库文档基线检查：YAML 可解析、相对链接可解析、spec 模板必填小节存在。
 
 只依赖标准库与 PyYAML。任一项失败即退出码 1，用于 CI 阻断。
+
+已知边界：链接检查只覆盖行内写法 `[text](path)`；引用式定义 `[text]: path`
+与 HTML `<a href>` 不检查。新增这两类写法时需要先扩展本脚本。
 """
 
 from __future__ import annotations
@@ -16,31 +19,32 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "target", "build"}
 
+# 只比对标题文字，不比对编号——模板调整章节顺序或改编号时不应误报。
 REQUIRED_SECTIONS = {
     "specs/_templates/spec.md": [
-        "## 1. 背景与问题",
-        "## 2. 范围",
-        "## 4. 功能需求",
-        "## 5. 非功能需求",
-        "## 8. 成功标准",
-        "## 10. 验收方式",
+        "背景与问题",
+        "范围",
+        "功能需求",
+        "非功能需求",
+        "成功标准",
+        "验收方式",
     ],
     "specs/_templates/plan.md": [
-        "## 1. 摘要",
-        "## 3. 宪法符合性检查（GATE）",
-        "## 7. 复杂度与例外登记",
-        "## 9. 风险",
+        "摘要",
+        "宪法符合性检查（GATE）",
+        "复杂度与例外登记",
+        "风险",
     ],
     "specs/_templates/tasks.md": [
-        "## 格式约定",
-        "## 依赖与执行顺序",
-        "## 完成定义（DoD）",
+        "格式约定",
+        "依赖与执行顺序",
+        "完成定义（DoD）",
     ],
     "specs/_templates/adr.md": [
-        "## 背景（Context）",
-        "## 决策（Decision）",
-        "## 备选方案（Alternatives Considered）",
-        "## 后果（Consequences）",
+        "背景（Context）",
+        "决策（Decision）",
+        "备选方案（Alternatives Considered）",
+        "后果（Consequences）",
     ],
 }
 
@@ -64,14 +68,21 @@ def check_yaml() -> None:
     print(f"[check] yaml parse: {len(files)} file(s)")
     for path in files:
         rel = path.relative_to(ROOT)
+        text = path.read_text(encoding="utf-8")
         try:
-            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            data = yaml.safe_load(text)
         except Exception as exc:  # noqa: BLE001 - 报告任意解析失败
             errors.append(f"{rel}: YAML 解析失败: {exc.__class__.__name__}: {exc}")
             continue
         if not isinstance(data, dict) or not data:
             errors.append(f"{rel}: YAML 顶层必须是空对象以外的映射")
             continue
+        if rel.parts[:2] == (".github", "workflows"):
+            # YAML 1.1 把未加引号的 `on` 解析成布尔 True，`On:` 之类的拼写错误也能“解析成功”，
+            # 因此按原文核对必需顶层键。
+            for key in ("on:", "jobs:"):
+                if not any(line.startswith(key) for line in text.splitlines()):
+                    errors.append(f"{rel}: 缺少顶层 `{key.rstrip(':')}` 键（按原文核对，不依赖解析结果）")
         print(f"  ok  {rel}")
 
 
@@ -112,6 +123,19 @@ def check_links() -> None:
     print(f"  {total} link(s) checked, {broken} broken")
 
 
+HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*#*\s*$")
+NUMBERING_RE = re.compile(r"^\d+(?:\.\d+)*[.、]?\s*")
+
+
+def headings_of(text: str) -> set[str]:
+    found = set()
+    for line in strip_code_blocks(text).splitlines():
+        match = HEADING_RE.match(line)
+        if match:
+            found.add(NUMBERING_RE.sub("", match.group(1)).strip())
+    return found
+
+
 def check_templates() -> None:
     global checks
     checks += 1
@@ -121,8 +145,8 @@ def check_templates() -> None:
         if not path.exists():
             errors.append(f"{rel_path}: 模板文件不存在")
             continue
-        text = path.read_text(encoding="utf-8")
-        missing = [section for section in sections if section not in text]
+        found = headings_of(path.read_text(encoding="utf-8"))
+        missing = [section for section in sections if section not in found]
         if missing:
             errors.append(f"{rel_path}: 缺少必填小节: {', '.join(missing)}")
             continue
