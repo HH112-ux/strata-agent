@@ -107,7 +107,7 @@ Postman/Insomnia 集合、curl 脚本、浏览器截图里的 `Authorization: Be
 | 层 | 位置 | 行为 |
 | --- | --- | --- |
 | CI（全历史） | `.github/workflows/ci.yml` 的 `secret-scan` job | `checkout` 取 `fetch-depth: 0`，执行 `gitleaks git --log-opts="--all"`；命中任一规则即非零退出，对应检查在 PR 上显示失败 |
-| 规则配置 | 根目录 `gitleaks.toml` | 继承内置规则集；allowlist 只放行 `<...>`、`${...}`、`your-...` 三种占位写法，不按目录豁免 |
+| 规则配置 | 根目录 `gitleaks.toml` | 继承内置规则集；**未配置 allowlist**——内置规则对 `<...>`、`${...}` 这类占位不报；确需豁免时加精确到值的单条 regex，不按目录放行 |
 | 本地复查 | 开发者本机 | `gitleaks dir . --config gitleaks.toml --redact --verbose` 可复现 CI 结论 |
 
 **这仍是"全历史兜底"，不是"提交前拦截"**：CI 在推送之后才运行，命中时凭证已进入远端仓库，必须按 2.1 轮换。要拦在离开本机之前，需要本地钩子：
