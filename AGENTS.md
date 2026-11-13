@@ -94,11 +94,11 @@ git remote -v
 **成熟度：L1 已达成（2026-11-13）。** 判定依据是 `.github/workflows/ci.yml` 的两个 job，在 `push` 到 `main`、面向 `main` 的 `pull_request` 与 `workflow_dispatch` 时运行：
 
 - `secret-scan`：gitleaks 以 `--log-opts="--all"` 扫全部提交历史，命中任一规则即非零退出，PR 显示失败。
-- `docs-check`：YAML 可解析且顶层为映射（`.github/workflows/*.yml` 另按原文核对顶层 `on`/`jobs` 键）、Markdown 相对链接可解析、`specs/_templates/` 必填小节齐全，任一不满足即退出 1。
+- `docs-check`：YAML 可解析且顶层为映射（`.github/workflows/*.yml` 还要求触发键 `on` 与 `jobs` 存在，且 `on` 的原文拼写必须是 `on`——YAML 1.1 会把 `On:` 也解析成布尔真）、Markdown 相对链接可解析、`specs/_templates/` 的必填小节必须是二级标题，任一不满足即退出 1。
 
 **尚未达成 L2**：无可运行 eval、无可用降级开关、无线上观测。构建与测试检查等 ADR-0005 选定构建工具后再加，不以占位任务充数。
 
-**边界说明**：两项检查会在 PR 上真实运行并显示失败，但仓库尚未配置 required status checks，因此"红叉能否拦住合并"当前依赖评审人遵守；要变成强制拦截，需在仓库设置中把 `Secret scan (full history)` 与 `Docs integrity` 设为 required。
+**边界说明**：`main` 已开启分支保护的 required status checks，contexts 为 `Secret scan (full history)` 与 `Docs integrity`，`strict: false`——检查未通过时合并被阻止，但不要求 PR 先同步到最新 `main`，绿灯可能来自基于旧 `main` 的运行。`enforce_admins` 仍为关闭，管理员可绕过这些检查；本地 `.githooks/pre-commit` 可被 `git commit --no-verify` 跳过，CI 的全历史扫描始终是兜底。
 
 | 阶段 | 必须产出 / 更新 | 不做的后果 |
 | --- | --- | --- |
