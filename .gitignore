@@ -1,28 +1,99 @@
-# Build output
+# Build output (Maven / Gradle; build tool not finalized yet)
 target/
 build/
 out/
 *.class
 *.jar
+*.war
+*.ear
 !gradle/wrapper/gradle-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+dependency-reduced-pom.xml
+.flattened-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+.gradle/
+gradle-app.setting
+.gradletasknamecache
 
-# IDE
+# JVM crash and profiling output
+hs_err_pid*
+replay_pid*
+*.hprof
+*.pid
+.attach_pid*
+
+# IDE and editor
 .idea/
 *.iml
+*.ipr
+*.iws
 .vscode/
-*.swp
+.settings/
+.classpath
+.project
+*.code-workspace
+
+# OS metadata
 .DS_Store
+Thumbs.db
+desktop.ini
 
 # Environment and secrets
 .env
 .env.*
 !.env.example
+application-local.yml
+application-local.yaml
+application-secret.yml
+application-secret.yaml
 *.pem
 *.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
 secrets/
+credentials*
 
-# Logs and runtime data
+# Local runtime data (PostgreSQL / Redis / application)
+# Committed fixtures belong in data/fixtures/, which is not ignored.
+data/local/
+data/raw/
+data/exports/
+pgdata/
+postgres-data/
+redis-data/
+dump.rdb
+appendonly.aof
+*.rdb
+*.mv.db
+*.trace.db
 logs/
 *.log
-data/
+tmp/
+.cache/
+
+# Model weights and generated artifacts
+models/
+*.pt
+*.pth
+*.safetensors
+*.gguf
+*.onnx
+*.h5
 checkpoints/
+eval-results/
+traces/
+
+# Local Docker overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Test and coverage reports
+coverage/
+*.exec
