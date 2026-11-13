@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# 提交前密钥拦截。启用：git config core.hooksPath .githooks
+# 这只是第一道网，可被 `git commit --no-verify` 绕过；CI 的全历史扫描仍是兜底。
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  cat >&2 <<'MSG'
+[pre-commit] 未找到 gitleaks，提交已阻止。
+
+  安装：brew install gitleaks
+  或从 https://github.com/gitleaks/gitleaks/releases 下载对应平台的二进制并放进 PATH。
+
+  确需暂时跳过（CI 仍会扫全历史，风险自负）：git commit --no-verify
+MSG
+  exit 1
+fi
+
+exec gitleaks protect --staged --redact --verbose --no-banner

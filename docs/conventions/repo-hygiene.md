@@ -107,19 +107,24 @@ Postman/Insomnia 集合、curl 脚本、浏览器截图里的 `Authorization: Be
 | 层 | 位置 | 行为 |
 | --- | --- | --- |
 | CI（全历史） | `.github/workflows/ci.yml` 的 `secret-scan` job | `checkout` 取 `fetch-depth: 0`，执行 `gitleaks git --log-opts="--all"`；命中任一规则即非零退出，对应检查在 PR 上显示失败 |
+| 提交前（本机） | `.githooks/pre-commit` | 调用 `gitleaks protect --staged --redact --verbose`，暂存区命中即非零退出，提交被中止 |
 | 规则配置 | 根目录 `gitleaks.toml` | 继承内置规则集；**未配置 allowlist**——内置规则对 `<...>`、`${...}` 这类占位不报；确需豁免时加精确到值的单条 regex，不按目录放行 |
-| 本地复查 | 开发者本机 | `gitleaks dir . --config gitleaks.toml --redact --verbose` 可复现 CI 结论 |
+| 本地复查 | 开发者本机 | `gitleaks git --log-opts="--all" --config gitleaks.toml --redact --verbose`（与 CI 同一命令，扫全部历史）；`gitleaks dir .` 只看工作树，不足以复现历史命中 |
 
-**这仍是"全历史兜底"，不是"提交前拦截"**：CI 在推送之后才运行，命中时凭证已进入远端仓库，必须按 2.1 轮换。要拦在离开本机之前，需要本地钩子：
+### 5.1 启用提交前钩子
+
+钩子随仓库分发（`.githooks/pre-commit`，已提交），启用只需在克隆里设置一次 `core.hooksPath`——它写在本地 `.git/config`，不会影响其它仓库：
 
 ```bash
-brew install gitleaks
-gitleaks protect --staged --redact --verbose
+brew install gitleaks           # 或用 releases 里的二进制放进 PATH
+git config core.hooksPath .githooks
 ```
 
-该钩子**尚未接入**（无 `.pre-commit-config.yaml`、无 `.git/hooks/pre-commit`），属待办；接入前依赖人工执行上一条命令。
+选这套而不是 `.pre-commit-config.yaml` 的理由：不需要 Python 与 `pre-commit` 包，钩子逻辑在仓库里可直接读；并且**找不到 gitleaks 时脚本会打印安装提示并退出 1，提交被阻止**，不会像未安装 `pre-commit` 那样静默失效。新克隆若没执行上面第二条命令，钩子不生效——`git config --get core.hooksPath` 可自查。
 
-扫描命中时的处理：
+**它只是第一道网，可以被绕过**：`git commit --no-verify` 会跳过所有钩子。因此 CI 的全历史扫描仍是兜底，绕过钩子不等于安全；命中后按 5.2 处理。
+
+### 5.2 扫描命中时的处理
 
 1. 停止提交，不回显明文，只报告文件、行号范围与凭证类型。
 2. 判定是真实凭证还是测试占位符；真实凭证立即轮换（2.1）。
@@ -134,7 +139,7 @@ git diff --cached --name-only
 # 2. 确认敏感路径确实被忽略（有输出即命中规则）
 git check-ignore -v .env data/local/app.db models/weights.bin
 
-# 3. 扫描暂存区凭证（钩子未接入，需手动执行；CI 另有全历史扫描）
+# 3. 扫描暂存区凭证（.githooks/pre-commit 已自动执行，这里用于手动复核；CI 另有全历史扫描）
 gitleaks protect --staged --redact
 
 # 4. 找出暂存区里的大文件（> 5MB）
