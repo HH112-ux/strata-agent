@@ -100,28 +100,24 @@ Postman/Insomnia 集合、curl 脚本、浏览器截图里的 `Authorization: Be
 - 需要提交的目录若被规则误伤，用 `!` 白名单精确放行，例如 `!data/fixtures/**`，不要删掉整条规则。
 - 已跟踪文件要停止跟踪，用 `git rm --cached <path>`，不能只改 `.gitignore`。
 
-## 5. 密钥扫描：现状与最小接入
+## 5. 密钥扫描：已接入（2026-11-13）
 
-**现状（2026-11-13）**：本仓库没有 `.github/`、没有 `.pre-commit-config.yaml`、没有 `gitleaks.toml`，也没有任何提交钩子或 CI 扫描。当前唯一防线是人工评审。
+**接入位置**：
 
-**最小可行接入**，分两步，先本地后 CI：
+| 层 | 位置 | 行为 |
+| --- | --- | --- |
+| CI（全历史） | `.github/workflows/ci.yml` 的 `secret-scan` job | `checkout` 取 `fetch-depth: 0`，执行 `gitleaks git --log-opts="--all"`；命中任一规则即非零退出，对应检查在 PR 上显示失败 |
+| 规则配置 | 根目录 `gitleaks.toml` | 继承内置规则集；allowlist 只放行 `<...>`、`${...}`、`your-...` 三种占位写法，不按目录豁免 |
+| 本地复查 | 开发者本机 | `gitleaks dir . --config gitleaks.toml --redact --verbose` 可复现 CI 结论 |
 
-1. 本地提交前扫描（拦截在推送之前）
+**这仍是"全历史兜底"，不是"提交前拦截"**：CI 在推送之后才运行，命中时凭证已进入远端仓库，必须按 2.1 轮换。要拦在离开本机之前，需要本地钩子：
 
-   ```bash
-   brew install gitleaks
-   gitleaks protect --staged --redact --verbose
-   ```
+```bash
+brew install gitleaks
+gitleaks protect --staged --redact --verbose
+```
 
-   通过后再 `git commit`。这是唯一能在密钥离开本机前拦住的环节。
-
-2. CI 兜底（防绕过钩子与 `--no-verify`）
-
-   新增 `.github/workflows/secret-scan.yml`，在 `push` 与 `pull_request` 上运行 gitleaks 官方 action，全历史扫描；命中即失败，且不打印明文。
-
-   只有确认第 1 步与第 2 步都生效后，才可以把“已启用密钥扫描”写进交付报告。
-
-**本次不修改 CI**：仓库当前没有构建与 CI，加扫描工作流会与 S1 阶段的门禁一起设计。接入前，密钥类问题一律按第 2.1 节人工核查。
+该钩子**尚未接入**（无 `.pre-commit-config.yaml`、无 `.git/hooks/pre-commit`），属待办；接入前依赖人工执行上一条命令。
 
 扫描命中时的处理：
 
@@ -138,7 +134,7 @@ git diff --cached --name-only
 # 2. 确认敏感路径确实被忽略（有输出即命中规则）
 git check-ignore -v .env data/local/app.db models/weights.bin
 
-# 3. 扫描暂存区凭证（接入 gitleaks 后）
+# 3. 扫描暂存区凭证（钩子未接入，需手动执行；CI 另有全历史扫描）
 gitleaks protect --staged --redact
 
 # 4. 找出暂存区里的大文件（> 5MB）
