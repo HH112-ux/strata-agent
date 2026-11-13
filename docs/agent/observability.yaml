@@ -1,0 +1,95 @@
+# D5 可观测性与成本
+# 路径：docs/agent/observability.yaml
+# 依据：《Agent 开发标准》§3 D5（本地副本：/Users/caspian/ai开发规范/agent-development-standard.md）
+# 仓库约束：constitution Art. V（每次运行必须有 traceId）与 NFR-11（Actuator/Micrometer 指标）。
+# ［本团队］字段白名单、采样率与预算为团队约定；字段命名尽量对齐 OpenTelemetry GenAI 约定。
+
+agent: strata-agent
+owner: Caspian
+updated_at: 2026-11-13
+
+trace:
+  backend: 待补                   # 缺：plan 只定 Micrometer/Actuator 与结构化日志，是否引入 OTel Collector 未决策
+  one_trace_per: run              # 一个任务一个 traceId（FR-9、AC-5.1）
+  spans:
+    - run                         # 一次任务
+    - model_call                  # 单次模型调用（含桩 provider）
+    - tool_call                   # 单次工具调用（参数摘要 + 结果状态）
+    - retrieval                   # 向量检索 / RAG
+    - workflow_node               # Graph 工作流节点（AC-3.1）
+    - guardrail                   # 护栏命中（D4）
+    - handoff                     # 多 Agent 交接（AC-2.2）
+
+  required_attrs:
+    - trace_id                    # 全链路关联键
+    - task.id                     # 任务实体（spec §6）
+    - agent.version               # 来自 releases.yaml；无发布时写 "unreleased"
+    - gen_ai.request.model        # 真实模型 id 或 "stub"
+    - gen_ai.usage.input_tokens
+    - gen_ai.usage.output_tokens
+    - tool.name
+    - tool.status                 # ok | error | denied | timeout
+    - tool.duration_ms
+    - error.code                  # E-MODEL-* / E-TOOL-* / E-WORKFLOW-* / E-PERM-* / E-EVAL-*
+    - latency.ms
+    - cost.usd
+
+  redact:                         # 采集侧脱敏，不等到导出（NFR-3）
+    - api_key                     # 模型服务 Key，任何 span 都不得出现
+    - prompt.full                 # 只留 hash 与长度
+    - tool.args.raw               # 只留字段名与类型
+    - document.text               # 合同/文档原文（合同预审场景）
+    - memory.content              # 记忆条目原文
+
+sampling:
+  default: 待补                   # 缺：无部署，无法给采样率；测试环境固定 1.0
+  errors: 1.0                     # 错误流量全保留
+  slow_requests: 1.0
+  retention_days: 待补            # 缺：无日志存储选型，保留期未定（不得晚于 data-boundary 的承诺）
+
+metrics:                          # 口径来自 NFR-11，实现未开始
+  - name: task_total
+    definition: 任务总数，按状态（完成/待人工/失败）分维
+    target: 待补
+  - name: task_duration_ms
+    definition: 端到端任务耗时 p95
+    target: 待补（NFR-1：编排与工具调度额外开销 p95 < 500ms；端到端问答 p95 < 8s 为暂定基线）
+  - name: token_usage
+    definition: 输入/输出 token 累计，按任务与 Agent 维度拆分
+    target: 待补
+  - name: cost_usd
+    definition: 任务级成本归因（模型调用为主）
+    target: 待补
+  - name: tool_invocation_count
+    definition: 工具调用次数，按工具名与状态分维
+    target: 待补
+  - name: tool_error_rate
+    definition: 工具失败数 / 工具调用总数
+    target: 待补
+  - name: heartbeat_miss_count
+    definition: 心跳缺失（疑似假死）次数（AC-5.3）
+    target: 待补
+  - name: eval_pass_rate
+    definition: 评测集通过率（AC-5.4）
+    target: 待补，阈值见 eval-plan.md
+
+budget:
+  per_run_usd: 待补               # 缺：模型单价与典型 token 量未知，无法给可信数字
+  per_user_per_day_usd: 待补      # 缺：当前无用户体系
+  per_day_usd: 待补
+  on_exceed: 中止任务并返回已用成本    # spec §7 已定行为；与 degradation-and-rollback.md §3 一致
+  unit_price_source: 待补         # 缺：火山方舟模型计费口径未记入仓库
+
+alerts:
+  # 告警缺失属于行为缺口（当前无监控后端、无通知通道），不是"取值未知"。
+  # 结案条件：S7 接入观测后端后，至少回填"任务失败率"与"日成本"两条的 condition / channel / severity。
+  - condition: 待补
+    channel: 待补
+    severity: 待补
+
+# 复原能力是唯一硬指标：任取一次失败任务，10 分钟内回答四问
+recovery_questions:
+  - 用户当时提交了什么任务、参数是什么
+  - 调用了哪些工具、参数摘要与返回状态
+  - 模型看到了哪些上下文（prompt hash 与检索片段 id）
+  - 这次花了多少钱、慢在哪一步（模型 / 工具 / 检索 / 节点）
