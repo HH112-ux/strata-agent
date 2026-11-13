@@ -13,6 +13,7 @@
 4. [specs/README.md](specs/README.md)：什么时候必须写 spec、从 spec 到 tasks 怎么走。
 5. 当前 feature 的 `spec.md`、`plan.md`、`tasks.md`，以及相关的 `docs/adr/`。
 6. [docs/conventions/git-convention.md](docs/conventions/git-convention.md)：提交、分支、评审、回滚的完整规范。
+7. [docs/conventions/repo-hygiene.md](docs/conventions/repo-hygiene.md)：什么必须提交、什么绝不能提交、什么要先评审。
 
 ## 2. 开工前检查
 
