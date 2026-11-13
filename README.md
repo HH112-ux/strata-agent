@@ -8,12 +8,18 @@
 
 | 层 | 能力 | 状态 |
 | --- | --- | --- |
-| 1 框架层 | 模型接入与配置（Spring AI / LangChain4j，主线待决策） | 待建设 |
+| 1 框架层 | Spring AI 主线，LangChain4j 作模型接入层对照适配 | 待建设 |
 | 2 工具调用 | Function Calling、MCP 工具接入 | 待建设 |
 | 3 单 Agent | 任务分解、工具选择、终止判定 | 待建设 |
 | 4 多 Agent | 角色分工、消息路由、冲突裁决与共识 | 待建设 |
 | 5 Graph 工作流 | 节点编排、检查点、人工介入、修正回退 | 待建设 |
 | 6 运维可观测 | traceId、任务级指标、心跳假死、成本归因 | 待建设 |
+
+## 技术基座
+
+- 模型接入：统一 provider 接口，默认对接火山方舟的 OpenAI 兼容端点；`base-url`、`model`、`api-key` 全部走环境变量。
+- 存储与中间件：PostgreSQL + pgvector（关系与向量合一）、Redis（会话记忆与分布式锁）。
+- 启动方式：Docker Compose 一键启动应用与依赖，连接串全部环境变量注入。
 
 ## 必做范围
 
@@ -29,6 +35,9 @@
 - [实施计划](specs/001-strata-platform/plan.md)：分阶段路线、技术上下文、编码规范。
 - [任务清单](specs/001-strata-platform/tasks.md)：可认领的任务与依赖关系。
 - [ADR-0001](docs/adr/0001-six-layer-stack-and-docs-first.md)：六层能力栈与文档先行决策。
+- [ADR-0002](docs/adr/0002-main-framework-spring-ai.md)：主线框架选择 Spring AI。
+- [ADR-0003](docs/adr/0003-model-provider-abstraction.md)：模型接入统一为 provider 接口。
+- [ADR-0004](docs/adr/0004-storage-and-middleware.md)：存储与中间件选型。
 
 ## 规划的仓库结构
 
@@ -41,7 +50,7 @@ docs/          ADR、quickstart、错误码
 scripts/       演示与验证脚本
 ```
 
-结构随 ADR-0002 的选型结论调整。
+结构已按 ADR-0002/0004 调整，Java 版本与构建工具确认后再微调。
 
 ## 开发约定
 

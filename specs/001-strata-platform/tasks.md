@@ -21,34 +21,40 @@
 - [x] T005 [P] 编写任务清单 in `specs/001-strata-platform/tasks.md`（AC: N/A）
 - [x] T006 [P] 编写 ADR-0001（六层能力栈 + 文档先行）in `docs/adr/0001-six-layer-stack-and-docs-first.md`（AC: N/A）
 - [ ] T007 确认 9 个示例模块清单与六层映射，回填 spec §3 与本文件 Phase 3 补充任务 in `specs/001-strata-platform/spec.md`（AC: FR-14）——负责人：Caspian，阻塞后续示例模块任务
-- [ ] T008 决策主线框架与构建工具，补写 ADR-0002 in `docs/adr/0002-main-agent-framework.md`（AC: FR-1）
-- [ ] T009 决策存储与中间件，补写 ADR-0003 in `docs/adr/0003-storage-and-middleware.md`（AC: NFR-1）
+- [x] T008 决策主线框架，补写 ADR-0002 in `docs/adr/0002-main-framework-spring-ai.md`（AC: FR-1）
+- [x] T009 决策存储与中间件，补写 ADR-0004 in `docs/adr/0004-storage-and-middleware.md`（AC: NFR-12）
+- [x] T016 [P] 决策模型接入抽象，补写 ADR-0003 in `docs/adr/0003-model-provider-abstraction.md`（AC: NFR-9）
+- [ ] T017 决策 Java 版本与构建工具，补写 ADR-0005 in `docs/adr/0005-java-version-and-build-tool.md`（AC: N/A）——阻塞 T010
 
-**Checkpoint**：文档基线可评审；T007–T009 未决时不得启动涉及选型的实现任务。
+**Checkpoint**：文档基线可评审；T007、T017 未决时不得启动涉及选型的实现任务。
 
 ## Phase 1 — Setup（S1，共享基础设施）
 
 **目的**：让后续任务可构建、可测试、可扫描；不含业务行为。
 
-- [ ] T010 建立多模块构建配置 in `platform/pom.xml`（AC: N/A）
+- [ ] T010 建立多模块构建配置 in `platform/pom.xml`（构建工具待 ADR-0005，路径随之调整）（AC: N/A）
 - [ ] T011 [P] 配置代码格式化与静态检查 in `platform/pom.xml`（AC: N/A）
-- [ ] T012 [P] 建立环境变量占位与配置加载约定 in `.env.example`（AC: NFR-3）
-- [ ] T013 [P] 配置 CI：编译、单测、密钥扫描、Javadoc 与注释语言检查 in `.github/workflows/ci.yml`（AC: NFR-3, NFR-7）
-- [ ] T014 [P] 建立桩模型与测试夹具 in `platform/framework-adapter/src/test/java`（AC: AC-1.4）
+- [ ] T012 [P] 建立环境变量占位与配置加载约定（模型 provider、PostgreSQL、Redis）in `.env.example`（AC: NFR-9）
+- [ ] T013 [P] 配置 CI：编译、单测、密钥扫描、Javadoc 与注释语言检查、覆盖率门槛（核心 ≥ 70%，其余 ≥ 60%）in `.github/workflows/ci.yml`（AC: NFR-3, NFR-7, NFR-10）
+- [ ] T014 [P] 建立桩 provider 与测试夹具 in `platform/framework-adapter/src/test/java`（AC: AC-1.4）
 - [ ] T015 [P] 建立统一错误码与异常基类 in `platform/agent-core/src/main/java`（AC: AC-1.2）
+- [ ] T018 [P] 建立 Docker Compose（应用、PostgreSQL + pgvector、Redis）与健康检查、冒烟脚本 in `docker-compose.yml`（AC: NFR-12）
+- [ ] T019 [P] 实现启动配置校验：必填环境变量缺失即失败并输出字段名 in `platform/framework-adapter/src/main/java`（AC: NFR-9）
 
-**Checkpoint**：本地可构建、可跑空测试，CI 可执行密钥扫描与注释语言检查。
+**Checkpoint**：本地可构建、可跑空测试；CI 可执行密钥扫描、注释语言检查与覆盖率门槛；Compose 可启动且健康检查通过。
 
 ## Phase 2 — Foundational（S2，阻塞前置）
 
 **目的**：框架层与工具调用层的最小能力；未完成不得开始任何 US 阶段。
 
-- [ ] T020 定义 ChatModel SPI 与配置切换 in `platform/framework-adapter/src/main/java`（AC: FR-1, AC-1.1）
+- [ ] T020 定义 provider 接口与 Spring AI 主线适配（默认 OpenAI 兼容端点）in `platform/framework-adapter/src/main/java`（AC: FR-1, AC-1.1, NFR-9）
 - [ ] T021 实现工具注册表（名称/参数/权限/超时声明）in `platform/tool-runtime/src/main/java`（AC: FR-2）
 - [ ] T022 实现受控工具执行器（白名单、超时、拒绝路径）in `platform/tool-runtime/src/main/java`（AC: AC-1.2, AC-1.3）
 - [ ] T023 [P] 编写沙箱与命令白名单测试 in `platform/tool-runtime/src/test/java`（AC: AC-1.2）
 - [ ] T024 [P] 实现 traceId 透传与结构化日志 in `platform/agent-observability/src/main/java`（AC: AC-1.5）
 - [ ] T025 编写"模型 + 工具"闭环集成测试 in `platform/tool-runtime/src/test/java`（AC: AC-1.1）
+- [ ] T026 [P] 实现 LangChain4j 模型接入对照适配，并断言与主线同一请求输出一致 in `platform/framework-adapter/src/main/java`（AC: FR-1）
+- [ ] T027 [P] 编写 provider 配置缺失与切换测试 in `platform/framework-adapter/src/test/java`（AC: NFR-9）
 
 **Checkpoint**：一次带工具调用的任务可跑通并输出 traceId；无真实 Key 时测试全绿。
 
@@ -198,7 +204,7 @@
 
 - Phase 0 → Phase 1 → Phase 2 → Phase 3 → Phase 4 / Phase 5（可并行）→ Phase 6 / Phase 7 / Phase 8（在 Phase 2、3 之后可并行）→ Phase 9 → Phase 10。
 - 故事间依赖：US-2 依赖 T032；US-3 依赖 T032；US-4 依赖 T021/T022；US-5 依赖 T024；US-6 依赖 T032；US-7 依赖 T042、T053、T073、T082。
-- T007 完成前，T035 与 T110–T118 不得启动；T008、T009 完成前，T010 与涉及存储的实现任务不得启动。
+- T007 完成前，T035 与 T110–T118 不得启动；T017 完成前，T010 与构建相关任务不得启动；T008、T009、T016 已完成，作为选型依据。
 - 同一文件的任务不得标 `[P]`。
 
 ## 实现策略
@@ -212,6 +218,8 @@
 - [ ] 任务对应的 AC 有自动化测试或 `quickstart.md` 手工步骤
 - [ ] 相关测试在本地与 CI 通过
 - [ ] 公开类、接口、方法均有英文 Javadoc 且标注 `@author Caspian`；注释与日志无中文
+- [ ] 外部配置全部来自环境变量，无硬编码连接串、密钥与绝对路径；缺失必填项启动即失败
+- [ ] 覆盖率达标（核心模块 ≥ 70%，其余 ≥ 60%）；Compose 一键启动与冒烟脚本通过
 - [ ] 未引入 spec 之外的行为（diff 与任务一致）
 - [ ] 无明文密钥、无写死绝对路径、无任意命令执行工具
 - [ ] 遗留缺口已登记为新任务
