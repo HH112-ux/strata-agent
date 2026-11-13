@@ -1,0 +1,44 @@
+# D6 模型 / 提示词 / 工具版本登记
+# 路径：docs/agent/releases.yaml
+# 依据：《Agent 开发标准》§3 D6（本地副本：/Users/caspian/ai开发规范/agent-development-standard.md）
+# 目的：让"上周那条回答用的是哪一版"可回答；让回滚有明确目标。
+# 现状：无任何已部署的模型/prompt/工具版本，仅登记变更政策与规则。
+# ［本团队］字段与变更分级为团队约定；无行业标准格式。
+
+agent: strata-agent
+owner: Caspian
+
+# 变更分级（［本团队］）
+#   PATCH 措辞澄清、无行为变化        → 跑冒烟集（未建，见 eval-plan）
+#   MINOR 新增能力或工具、行为可能变化 → 跑黄金集 + 回归集
+#   MAJOR 改变行为口径、权限、数据流   → 全量 eval + 人工批准
+change_policy:
+  PATCH: [smoke]                 # smoke 集待补
+  MINOR: [golden, regression]
+  MAJOR: [golden, adversarial, regression, manual_approval]
+
+# 生产环境规则
+rules:
+  allow_floating_model_alias: false       # 禁止 latest 别名；用精确快照 id
+  prev_release_must_remain_available: true
+  prompt_must_be_hashable: true
+  model_snapshot_not_deleted: true
+
+releases: []                    # 当前 0 条：无实现、无发布。首次发布时按下列字段登记：
+                                #   id / deployed_at / model / model_provider / prompt_hash /
+                                #   prompt_file / tools_version / params / change_type /
+                                #   change_summary / eval_result / eval_delta / approved_by / rollback_to
+
+# 厂商模型下线跟踪：火山方舟模型快照退役前必须完成评估
+deprecations:
+  - model: 待补                  # 缺：尚未确定线上用哪个精确模型快照（default 模型名在 README 只有"默认对接火山方舟"）
+    announced_retire_at: 待补
+    migration_plan: 待补
+    owner: Caspian
+
+# 待补汇总（缺什么才能让本文件可用）
+#   1. 精确模型快照 id 与 provider 计费口径 —— 缺：默认模型名未定（ADR-0003 只定"OpenAI 兼容端点"）
+#   2. prompt 文件位置与 hash 工具 —— 缺：system prompt 未写，hash 工具随构建选型（ADR-0005）
+#   3. tools 版本号来源 —— 缺：capability-contract 尚无工具（D1）
+#   4. eval 结果文件 —— 缺：evals 未建（D2）
+#   5. 回滚目标 —— 缺：从未部署过，无"上一可用版本"

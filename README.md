@@ -34,6 +34,7 @@
 - [规格说明](specs/001-strata-platform/spec.md)：做什么、不做什么、验收口径。
 - [实施计划](specs/001-strata-platform/plan.md)：分阶段路线、技术上下文、编码规范。
 - [任务清单](specs/001-strata-platform/tasks.md)：可认领的任务与依赖关系。
+- [docs/agent/](docs/agent/)：能力与权限契约、威胁模型、评测计划、可观测、版本登记、降级与回滚、runbook、数据与隐私边界。
 - [ADR-0001](docs/adr/0001-six-layer-stack-and-docs-first.md)：六层能力栈与文档先行决策。
 - [ADR-0002](docs/adr/0002-main-framework-spring-ai.md)：主线框架选择 Spring AI。
 - [ADR-0003](docs/adr/0003-model-provider-abstraction.md)：模型接入统一为 provider 接口。

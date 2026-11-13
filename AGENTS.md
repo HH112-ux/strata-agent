@@ -14,6 +14,12 @@
 5. 当前 feature 的 `spec.md`、`plan.md`、`tasks.md`，以及相关的 `docs/adr/`。
 6. [docs/conventions/git-convention.md](docs/conventions/git-convention.md)：提交、分支、评审、回滚的完整规范。
 7. [docs/conventions/repo-hygiene.md](docs/conventions/repo-hygiene.md)：什么必须提交、什么绝不能提交、什么要先评审。
+8. [docs/agent/](docs/agent/)：运行时与风险侧制品。改动工具、权限、模型、数据流前，先读对应文件——
+   [capability-contract.yaml](docs/agent/capability-contract.yaml)（工具与权限、护栏、HITL）、
+   [threat-model.md](docs/agent/threat-model.md)、[eval-plan.md](docs/agent/eval-plan.md)、
+   [observability.yaml](docs/agent/observability.yaml)、[releases.yaml](docs/agent/releases.yaml)、
+   [degradation-and-rollback.md](docs/agent/degradation-and-rollback.md)、[runbook.md](docs/agent/runbook.md)、
+   [data-boundary.md](docs/agent/data-boundary.md)。
 
 ## 2. 开工前检查
 
@@ -68,7 +74,7 @@ git remote -v
 - 核心行为必须有自动化测试；测试名或注释标注对应 AC ID。
 - 模型调用使用桩模型或可回放记录；自动化测试不得依赖真实付费 Key。
 - 新增或修改公开 API 时，必须有英文 Javadoc 且标注 `@author Caspian`；代码注释与日志仅用英文。
-- 文档改动至少核对：相对链接可解析、Mermaid 语法正确、无遗留占位符、无 HTML 产物。
+- 文档改动至少核对：相对链接可解析、Mermaid 语法正确、无遗留 `<...>` 占位符、无 HTML 产物。`docs/agent/` 下的 `待补：<缺什么>` 是允许的显式缺口写法，但每处必须写明缺的是什么，空标题与空小节不允许。
 - 报告中必须区分「已运行并通过」「已运行但失败」「未运行」，禁止用推测替代验证。
 - 当前仓库尚无构建与 CI（S1 阶段落地），在此之前以人工核对加第 7 节的代码审查作为验证证据，并在报告中如实说明。
 
@@ -80,6 +86,22 @@ git remote -v
 - 只实现指派的任务 ID 区间（如 `T010–T015`），越界改动视为缺陷。
 - `checklists/` 由评审人勾选，Agent 不得自批，也不得修改勾选状态。
 - 代码行为变化导致 AC 状态变化时，在同一 PR 内更新 spec；禁止只改代码不改规格。
+
+### 6.1 各阶段必须产出 / 更新的制品
+
+档位：**prototype（原型）**。判据与裁剪见《Agent 开发标准》§1.2、§4；升档触发为"接触生产数据、有写操作、对外可见、有 SLA"，任一命中必须补齐上线档全部制品，不得带着原型状态上线。
+
+| 阶段 | 必须产出 / 更新 | 不做的后果 |
+| --- | --- | --- |
+| 立项 | 在 `spec.md` 写档位与三元组结论（私有数据 / 不可信内容 / 外部通信） | 后面的裁剪没有依据 |
+| G1 规格评审 | `spec.md` 的 NFR 与 Scope Out → 同步 `docs/agent/data-boundary.md` 一页、`capability-contract.yaml` 的 `forbidden` 清单 | "不做什么"没变成"不提供哪些工具" |
+| `plan.md`（G2 前） | `docs/agent/capability-contract.yaml`（D1 + D4）、`docs/agent/threat-model.md`（D3） | 新增工具未经登记就进实现；护栏凭空抄 |
+| `tasks.md`（G2） | 把 D2 / D4 / D6 / D7 / D8 拆成任务并挂 AC；D 类任务 ID 与实现任务并列 | 制品永远"下次再补" |
+| 实现 | `observability.yaml` 的 span 与字段、`capability-contract.yaml` 的 `guardrails`、开关 | trace 与护栏事后补不进 core 链路 |
+| converge（收敛核对） | 核对 D1–D11 缺口，写入收敛报告 | 规格收敛了但工程上不可上线 |
+| 发布 / 交付 | `releases.yaml` 登记三元组（模型快照 / prompt hash / 工具版本）；`runbook.md` 与 `eval-plan.md` 回归集同步 | 出事后无法反查版本、无处置步骤 |
+
+**退出条件**：converge 阶段 D 类制品缺口为零，或在 `plan.md` 的复杂度登记表中登记为显式豁免（含 owner 与结案条件）。缺一项不得声明"规格已收敛"。
 
 ## 7. 交付前代码审查
 
@@ -101,6 +123,7 @@ git remote -v
 | F6 | 擅自改与本任务无关的文件：顺手格式化、升级依赖、重构无关代码、删除“看起来无用”的文件 |
 | F7 | 未实际运行就声称“已验证”“测试通过” |
 | F8 | 未经授权合并 PR、把 draft 转 ready、打 tag、删除分支 |
+| F9 | 新增或扩大工具权限却不更新 `docs/agent/capability-contract.yaml`，或注册未登记的工具 |
 
 已推送的违规提交用 `git revert` 修复并留痕，禁止用 reset 改写历史。发现疑似密钥立即停止，报告文件与行号范围及密钥类型，不回显明文。
 
